@@ -17,24 +17,8 @@ RUN apt-get update && apt-get -y install  unzip \
                         automake \
                         pkg-config
 
-ENV KERNEL_VERSION  3.15.3
-ENV AUFS_BRANCH     aufs3.15
-
 # Fetch the kernel sources
-RUN curl --retry 10 https://www.kernel.org/pub/linux/kernel/v3.x/linux-$KERNEL_VERSION.tar.xz | tar -C / -xJ && \
-    mv /linux-$KERNEL_VERSION /linux-kernel
-
-# Download AUFS and apply patches and files, then remove it
-RUN git clone git://git.code.sf.net/p/aufs/aufs3-standalone && \
-    cd aufs3-standalone && \
-    git checkout $AUFS_BRANCH && \
-    cd /linux-kernel && \
-    for patch in aufs3-kbuild aufs3-base aufs3-mmap aufs3-standalone; do \
-        patch -p1 < /aufs3-standalone/$patch.patch; \
-    done && \
-    cp -r /aufs3-standalone/Documentation /linux-kernel && \
-    cp -r /aufs3-standalone/fs /linux-kernel && \
-    cp -r /aufs3-standalone/include/uapi/linux/aufs_type.h /linux-kernel/include/uapi/linux/
+COPY linux /linux-kernel
 
 ADD kernel_config /linux-kernel/.config
 
@@ -91,17 +75,6 @@ RUN curl -L ftp://ftp.de.debian.org/debian/pool/main/libc/libcap2/libcap2_2.22.o
     mkdir -p $ROOTFS/usr/local/lib && \
     cp -av `pwd`/output/lib64/* $ROOTFS/usr/local/lib
 
-# Make sure the kernel headers are installed for aufs-util, and then build it
-RUN cd /linux-kernel && \
-    make INSTALL_HDR_PATH=/tmp/kheaders headers_install && \
-    cd / && \
-    git clone git://git.code.sf.net/p/aufs/aufs-util && \
-    cd /aufs-util && \
-    git checkout aufs3.9 && \
-    CPPFLAGS="-m32 -I/tmp/kheaders/include" CLFAGS=$CPPFLAGS LDFLAGS=$CPPFLAGS make && \
-    DESTDIR=$ROOTFS make install && \
-    rm -rf /tmp/kheaders
-
 # Download the rootfs, don't unpack it though:
 RUN curl -L -o /tcl_rootfs.gz $TCL_REPO_BASE/release/distribution_files/rootfs.gz
 
@@ -113,11 +86,11 @@ RUN for dep in $TCZ_DEPS; do \
         rm -f /tmp/$dep.tcz ;\
     done
 
-ADD rootfs/isolinux /isolinux
-ADD rootfs/make_iso.sh /
+COPY rootfs/isolinux /isolinux
+COPY rootfs/make_iso.sh /
 
 # Copy over out custom rootfs
-ADD rootfs/rootfs $ROOTFS
+COPY rootfs/rootfs $ROOTFS
 
 # Make sure init scripts are executable
 RUN find $ROOTFS/etc/rc.d/ -exec chmod +x {} \; && \
@@ -130,7 +103,7 @@ RUN curl -L -o $ROOTFS/usr/local/bin/docker https://get.docker.io/builds/Linux/x
     ( $ROOTFS/usr/local/bin/docker version || true )
 
 # get the git versioning info
-ADD . /gitrepo
+COPY . /gitrepo
 RUN cd /gitrepo && \
     GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && \
     GITSHA1=$(git rev-parse --short HEAD) && \
