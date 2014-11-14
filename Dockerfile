@@ -22,7 +22,7 @@ ENV KERNEL_VERSION  3.18-rc4
 ENV AUFS_BRANCH     aufs3.16
 
 # Fetch the kernel sources
-RUN curl --retry 10 https://www.kernel.org/pub/linux/kernel/v3.x/linux-$KERNEL_VERSION.tar.xz | tar -C / -xJ && \
+RUN curl --retry 10 https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-$KERNEL_VERSION.tar.xz | tar -C / -xJ && \
     mv /linux-$KERNEL_VERSION /linux-kernel
 
 # Download AUFS and apply patches and files, then remove it
