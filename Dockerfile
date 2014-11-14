@@ -25,17 +25,6 @@ ENV AUFS_BRANCH     aufs3.16
 RUN curl --retry 10 https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-$KERNEL_VERSION.tar.xz | tar -C / -xJ && \
     mv /linux-$KERNEL_VERSION /linux-kernel
 
-# Download AUFS and apply patches and files, then remove it
-RUN git clone -b $AUFS_BRANCH --depth 1 http://git.code.sf.net/p/aufs/aufs3-standalone && \
-    cd aufs3-standalone && \
-    cd /linux-kernel && \
-    cp -r /aufs3-standalone/Documentation /linux-kernel && \
-    cp -r /aufs3-standalone/fs /linux-kernel && \
-    cp -r /aufs3-standalone/include/uapi/linux/aufs_type.h /linux-kernel/include/uapi/linux/ &&\
-    for patch in aufs3-kbuild aufs3-base aufs3-mmap aufs3-standalone aufs3-loopback; do \
-        patch -p1 < /aufs3-standalone/$patch.patch; \
-    done
-
 COPY kernel_config /linux-kernel/.config
 
 RUN jobs=$(nproc); \
@@ -93,17 +82,6 @@ RUN curl -L http://http.debian.net/debian/pool/main/libc/libcap2/libcap2_2.22.or
     make prefix=`pwd`/output install && \
     mkdir -p $ROOTFS/usr/local/lib && \
     cp -av `pwd`/output/lib64/* $ROOTFS/usr/local/lib
-
-# Make sure the kernel headers are installed for aufs-util, and then build it
-RUN cd /linux-kernel && \
-    make INSTALL_HDR_PATH=/tmp/kheaders headers_install && \
-    cd / && \
-    git clone http://git.code.sf.net/p/aufs/aufs-util && \
-    cd /aufs-util && \
-    git checkout aufs3.9 && \
-    CPPFLAGS="-m32 -I/tmp/kheaders/include" CLFAGS=$CPPFLAGS LDFLAGS=$CPPFLAGS make && \
-    DESTDIR=$ROOTFS make install && \
-    rm -rf /tmp/kheaders
 
 # Prepare the ISO directory with the kernel
 RUN cp -v /linux-kernel/arch/x86_64/boot/bzImage /tmp/iso/boot/vmlinuz64
